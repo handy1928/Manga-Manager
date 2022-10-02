@@ -1426,12 +1426,11 @@ class App:
 
 
 class AppCli:
-
+    origin_LoadedcInfo: LoadedComicInfo
     def __init__(self):
         self.args = None
         self.selected_files: list[str] = None
         self.loadedComicInfo_List: list[LoadedComicInfo] = None
-
         self.origin_path = None
 
     # def parse_args(self):

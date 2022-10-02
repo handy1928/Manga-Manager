@@ -3,13 +3,18 @@ import logging
 import os
 import pathlib
 import sys
+from glob import glob
 
 from MetadataManagerLib.MetadataManager import AppCli
+
+
 def is_dir_path(path):
     if os.path.isfile(path):
         return path
     else:
         raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
+
 if __name__ == '__main__':
     # <Logger>
     logger = logging.getLogger()
@@ -57,9 +62,8 @@ if __name__ == '__main__':
                         help="Should the modified file keep the numbering (volume, chapter number or both)",
                         choices=list_of_choices,
                         dest="arg_keep_value")
+
     app.args = parser.parse_args()
-    logger.setLevel(app.args.loglevel)
-    from glob import glob
 
     if app.args.copyfrom:
         app.origin_path = glob(app.args.copyfrom)[0]
@@ -69,7 +73,7 @@ if __name__ == '__main__':
         else:
             selected_files = glob(app.args.copyto)
         app.selected_files = selected_files
-
+    logger.setLevel(app.args.loglevel)
     app.keepNumeration = app.args.arg_keep_value
 
     app.loadedComicInfo_List, app.origin_LoadedcInfo = app.loadFiles()
