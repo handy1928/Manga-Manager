@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import copy
 import logging
 import os
@@ -10,14 +9,6 @@ import pathlib
 import tkinter as tk
 
 from lxml.etree import XMLSyntaxError
-
-
-def is_dir_path(path):
-    if os.path.isfile(path):
-        return path
-    else:
-        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
-
 
 if __name__ == '__main__':
     from cbz_handler import ReadComicInfo, WriteComicInfo
@@ -1443,49 +1434,48 @@ class AppCli:
 
         self.origin_path = None
 
-
-    def parse_args(self):
-        """
-        Parses the argument provided on the execution of the script.
-
-        **AppCli.copyFrom** The path to the origin file to copy from\n
-        **AppCli.copyTo** The path to the destination paths\n
-        **AppCli.keepNumeration** 3 options {'numeration','volume','chapter'}Whether to keep numeration from destination path or remove when pasting\n
-        """
-        parser = argparse.ArgumentParser()
-
-        parser.add_argument("--copyfrom", help="The path to the file you want to copy the metatada from.\n "
-                                               "(Volume and number are not parsed)", type=is_dir_path,
-                            metavar="<path>")
-        parser.add_argument("--copyto", type=is_dir_path, help="The path of the files to modify."
-                                                               " (Accepts shell-style wildcards)",
-                            metavar="<path>", nargs="+")
-        parser.add_argument(
-            '-d', '--debug',
-            help="Print lots of debugging statements",
-            action="store_const", dest="loglevel", const=logging.DEBUG,
-            default=logging.INFO)
-
-        # parser = argparse.ArgumentParser(description='some description')
-
-        list_of_choices = ["numeration", "volume", "chapter"]
-        parser.add_argument("--keep",
-                            help="Should the modified file keep the numbering (volume, chapter number or both)",
-                            choices=list_of_choices,
-                            dest="arg_keep_value")
-        self.args = parser.parse_args()
-        logger.setLevel(self.args.loglevel)
-        from glob import glob
-        if self.args.copyfrom:
-            self.origin_path = glob(self.args.copyfrom)[0]
-        if self.args.copyto:
-            if isinstance(self.args.copyto, list):
-                selected_files = self.args.copyto
-            else:
-                selected_files = glob(self.args.copyto)
-            self.selected_files = selected_files
-
-        self.keepNumeration = self.args.arg_keep_value
+    # def parse_args(self):
+    #     """
+    #     Parses the argument provided on the execution of the script.
+    #
+    #     **AppCli.copyFrom** The path to the origin file to copy from\n
+    #     **AppCli.copyTo** The path to the destination paths\n
+    #     **AppCli.keepNumeration** 3 options {'numeration','volume','chapter'}Whether to keep numeration from destination path or remove when pasting\n
+    #     """
+    #     parser = argparse.ArgumentParser()
+    #
+    #     parser.add_argument("--copyfrom", help="The path to the file you want to copy the metatada from.\n "
+    #                                            "(Volume and number are not parsed)", type=is_dir_path,
+    #                         metavar="<path>")
+    #     parser.add_argument("--copyto", type=is_dir_path, help="The path of the files to modify."
+    #                                                            " (Accepts shell-style wildcards)",
+    #                         metavar="<path>", nargs="+")
+    #     parser.add_argument(
+    #         '-d', '--debug',
+    #         help="Print lots of debugging statements",
+    #         action="store_const", dest="loglevel", const=logging.DEBUG,
+    #         default=logging.INFO)
+    #
+    #     # parser = argparse.ArgumentParser(description='some description')
+    #
+    #     list_of_choices = ["numeration", "volume", "chapter"]
+    #     parser.add_argument("--keep",
+    #                         help="Should the modified file keep the numbering (volume, chapter number or both)",
+    #                         choices=list_of_choices,
+    #                         dest="arg_keep_value")
+    #     self.args = parser.parse_args()
+    #     logger.setLevel(self.args.loglevel)
+    #     from glob import glob
+    #     if self.args.copyfrom:
+    #         self.origin_path = glob(self.args.copyfrom)[0]
+    #     if self.args.copyto:
+    #         if isinstance(self.args.copyto, list):
+    #             selected_files = self.args.copyto
+    #         else:
+    #             selected_files = glob(self.args.copyto)
+    #         self.selected_files = selected_files
+    #
+    #     self.keepNumeration = self.args.arg_keep_value
 
     def loadFiles(self) -> tuple[list[LoadedComicInfo], LoadedComicInfo | None]:
         """
