@@ -7,10 +7,12 @@ from CommonLib.HelperFunctions import get_elapsed_time
 from CommonLib.HelperFunctions import get_estimated_time
 
 logger = logging.getLogger(__name__)
+CURSOR_UP_ONE = '\x1b[1A'
+ERASE_LINE = '\x1b[2K'
 
 
-def printProgressBar(total, _last_print_lenght, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r",
-                     last=False, iteration=0, start_time=0.0):
+def printProgressBar(total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r",
+                     last=False, iteration=0, start_time=0.0, final_message=None):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -26,23 +28,24 @@ def printProgressBar(total, _last_print_lenght, prefix='', suffix='', decimals=1
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
-    msg = f'{prefix} |{bar}| {percent}% - {iteration}/{total} {suffix} | Elapsed: {get_elapsed_time(start_time)} | Estimated: {get_estimated_time(start_time, processed_files=iteration, total_files=total)}'
-    print(' ' * _last_print_lenght, end='\r')
-    print("\r" + msg, end=printEnd)
-    _last_print_lenght = len(msg)
+    msg = f'{prefix} |{bar}| {percent}% - {iteration}/{total} {suffix}\nElapsed: {get_elapsed_time(start_time)} | Estimated: {get_estimated_time(start_time, processed_files=iteration, total_files=total)}'
+    print(ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE)
+    # print(' ' * _last_print_lenght, end=)
+    print("\r" + msg)
     # Print New Line on Complete
 
-    if iteration == total:
-        print(msg)
-        print("Processing Finished")
-    return _last_print_lenght
+    if iteration >= total or last:
+        print(ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE + ERASE_LINE + CURSOR_UP_ONE)
+        print("\r" + msg)
+        if last:
+            print(final_message)
 
 
 class ProgressBar:
     def __init__(self, UI_isInitialized: bool, pb_root: tk.Frame, total: int):
 
         self.UI_isInitialized = UI_isInitialized
-        self.pb_root = pb_root
+        self._pb_root = pb_root
         self.total = total
 
         self.start_time = time.time()
@@ -51,18 +54,18 @@ class ProgressBar:
 
         if UI_isInitialized:
             self.label_progress_text = tk.StringVar()
-            self.init_ui_initialized()
+            self._init_ui_initialized()
         else:
-            self.init_nogui()
+            self._init_nogui()
 
             return
 
-    def init_nogui(self):
-        self.last_print_length = 0
-        self.last_print_length = printProgressBar(self.total, self.last_print_length, start_time=self.start_time)
+    def _init_nogui(self):
+        self._last_print_length = 0
+        printProgressBar(self.total, start_time=self.start_time)
 
-    def init_ui_initialized(self):
-        self.style = ttk.Style(self.pb_root)
+    def _init_ui_initialized(self):
+        self.style = ttk.Style(self._pb_root)
         self.style.layout('text.Horizontal.TProgressbar',
                           [
                               ('Horizontal.Progressbar.trough',
@@ -87,10 +90,10 @@ class ProgressBar:
                           )
         self.style.configure('text.Horizontal.TProgressbar', text='0 %', anchor='center')
 
-        self.pb = ttk.Progressbar(self.pb_root, length=400, style='text.Horizontal.TProgressbar',
+        self.pb = ttk.Progressbar(self._pb_root, length=400, style='text.Horizontal.TProgressbar',
                                   mode="determinate")  # create progress bar
         self.pb.grid(row=0, column=0, sticky=tk.E + tk.W)
-        self.pb_text = tk.Label(self.pb_root, textvariable=self.label_progress_text, anchor=tk.W, justify="right")
+        self.pb_text = tk.Label(self._pb_root, textvariable=self.label_progress_text, anchor=tk.W, justify="right")
         self.pb_text.grid(row=1, column=0, sticky=tk.E)
 
         logger.info("Initialized progress bar")
@@ -102,7 +105,9 @@ class ProgressBar:
             f"Estimated time: {get_estimated_time(self.start_time, self.processed_counter, self.total)}")
 
     def increaseCount(self):
-        if self.processed_counter >= self.total:
+        if self.processed_counter + 1 > self.total:
+            printProgressBar(self.total, start_time=self.start_time,
+                             iteration=self.processed_counter, last=True)
             return
         self.processed_counter += 1
         self.updatePB()
@@ -117,7 +122,7 @@ class ProgressBar:
     def updatePB(self):
 
         if self.UI_isInitialized:
-            self.pb_root.update()
+            self._pb_root.update()
             percentage = ((self.processed_counter + self.processed_errors) / self.total) * 100
             self.style.configure('text.Horizontal.TProgressbar',
                                  text='{:g} %'.format(round(percentage, 2)))  # update label
@@ -127,5 +132,9 @@ class ProgressBar:
                 f"Elapsed time  : {get_elapsed_time(self.start_time)}\n"
                 f"Estimated time: {get_estimated_time(self.start_time, self.processed_counter, self.total)}")
         else:
-            self.last_print_length = printProgressBar(self.total, self.last_print_length, start_time=self.start_time,
-                                                      iteration=self.processed_counter)
+            printProgressBar(self.total, start_time=self.start_time,
+                             iteration=self.processed_counter)
+
+    def send_final_message(self, message):
+        printProgressBar(self.total, start_time=self.start_time,
+                         iteration=self.processed_counter, last=True, final_message=message)

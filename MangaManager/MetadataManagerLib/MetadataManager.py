@@ -1,38 +1,37 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import copy
+import logging
+import os
+import os.path
+import pathlib
+import sys
+import tkinter as tk
+
+from lxml.etree import XMLSyntaxError
+
+
+def is_dir_path(path):
+    if os.path.isfile(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
 
 if __name__ == '__main__':
-    import logging
-    import os.path
-    import pathlib
-    import sys
-    import cbz_handler
+    from cbz_handler import ReadComicInfo, WriteComicInfo
     from ComicInfo import ComicInfo
     from errors import NoFilesSelected, NoComicInfoLoaded
     from models import LoadedComicInfo
-    import argparse
-
-
-    def is_dir_path(path):
-
-        if os.path.isfile(path):
-            return path
-        else:
-            raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
 else:
-    import logging
-    import os
-    import pathlib
-    import tkinter as tk
 
     from tkinter.filedialog import askopenfiles
     from tkinter import messagebox as mb
     from tkinter import ttk
     from tkinter.scrolledtext import ScrolledText
 
-    from lxml.etree import XMLSyntaxError
     from CommonLib.ScrolledFrame import ScrolledFrame
     from CommonLib.ProgressBarWidget import ProgressBar
     from . import ComicInfo
@@ -188,9 +187,6 @@ else:
             ComicInfoObject.set_BlackAndWhite,
             ComicInfoObject.set_Manga,
             ComicInfoObject.set_StoryArcNumber]
-
-
-
 
 
 class App:
@@ -1308,6 +1304,7 @@ class App:
             modified_loadedComicInfo_list.append(modified_loadedComicInfo)
         self.loadedComicInfo_list = modified_loadedComicInfo_list
         self._unlockButtons()
+
     def _saveComicInfo(self):
         self._lockButtons()
         progressBar = ProgressBar(self._initialized_UI, self._progressBarFrame if self._initialized_UI else None,
@@ -1436,6 +1433,8 @@ class App:
         # self._button_4.configure(state="normal")
         self._button_5.configure(state="normal")
         self._button_recover.configure(state="normal")
+
+
 class AppCli:
 
     def __init__(self):
@@ -1444,8 +1443,7 @@ class AppCli:
         self.loadedComicInfo_List: list[LoadedComicInfo] = None
 
         self.origin_path = None
-        self.parse_args()
-        self.loadedComicInfo_List, self.origin_LoadedcInfo = self.loadFiles()
+
 
     def parse_args(self):
         """
@@ -1463,6 +1461,11 @@ class AppCli:
         parser.add_argument("--copyto", type=is_dir_path, help="The path of the files to modify."
                                                                " (Accepts shell-style wildcards)",
                             metavar="<path>", nargs="+")
+        parser.add_argument(
+            '-d', '--debug',
+            help="Print lots of debugging statements",
+            action="store_const", dest="loglevel", const=logging.DEBUG,
+            default=logging.INFO)
 
         # parser = argparse.ArgumentParser(description='some description')
 
@@ -1472,6 +1475,7 @@ class AppCli:
                             choices=list_of_choices,
                             dest="arg_keep_value")
         self.args = parser.parse_args()
+        logger.setLevel(self.args.loglevel)
         from glob import glob
         if self.args.copyfrom:
             self.origin_path = glob(self.args.copyfrom)[0]
@@ -1495,13 +1499,24 @@ class AppCli:
         copyFrom_LoadedComicInfo = None
         for file_path in self.selected_files:
             logger.debug(f"Loading '{os.path.basename(file_path)}'")
-            comicInfo: ComicInfo = cbz_handler.ReadComicInfo(file_path, ignore_empty_metadata=True).to_ComicInfo()
+            try:
+                comicInfo: ComicInfo = ReadComicInfo(file_path, ignore_empty_metadata=True).to_ComicInfo()
+            except NotValidCbz:
+                pass
+                logger.warning(f"Skipped {file_path} file not supported or not a valid zip/cbz")
+                self.selected_files.remove(file_path)
+                continue
+            except BrokenCbz:
+                logger.error(f"Skipped {file_path} broken file")
+                self.selected_files.remove(file_path)
+                continue
+
             loadedComicinfo = LoadedComicInfo(file_path, comicInfo=comicInfo)
             loadedComicInfo_List.append(loadedComicinfo)
             logger.debug(f"Loaded  {os.path.basename(file_path)}")
         if self.args.copyfrom:
             logger.debug(f"Loading source ComicInfo: '{os.path.basename(self.args.copyfrom)}'")
-            comicInfo = cbz_handler.ReadComicInfo(self.origin_path, ignore_empty_metadata=False).to_ComicInfo()
+            comicInfo = ReadComicInfo(self.origin_path, ignore_empty_metadata=False).to_ComicInfo()
             comicInfo.set_Number("")
             comicInfo.set_Volume(-1)
             copyFrom_LoadedComicInfo = LoadedComicInfo(self.origin_path, comicInfo)
@@ -1511,8 +1526,10 @@ class AppCli:
     def saveFiles(self):
         if not self.loadedComicInfo_List:
             raise NoComicInfoLoaded()
+        progressbar = ProgressBar(False, None, len(self.loadedComicInfo_List))
         for loadedComicInfo in self.loadedComicInfo_List:
-            cbz_handler.WriteComicInfo(loadedComicInfo).to_file()
+            progressbar.increaseCount()
+            WriteComicInfo(loadedComicInfo).to_file()
             logger.debug(f"Saved {os.path.basename(loadedComicInfo.path)}")
 
     def copyCInfo(self):
@@ -1520,6 +1537,7 @@ class AppCli:
             raise NoComicInfoLoaded()
         if not self.origin_LoadedcInfo:
             raise NoComicInfoLoaded(": No comicinfo to copy from selected")
+
         for loadedInfo in self.loadedComicInfo_List:
             newCInfo = copy.copy(self.origin_LoadedcInfo.comicInfoObj)
             if self.keepNumeration == "numeration":
@@ -1531,7 +1549,6 @@ class AppCli:
                 newCInfo.set_Number(loadedInfo.comicInfoObj.get_Number())
             loadedInfo.comicInfoObj = newCInfo
 
-
 if __name__ == '__main__':
     # <Logger>
     logger = logging.getLogger()
@@ -1541,7 +1558,7 @@ if __name__ == '__main__':
     PROJECT_PATH = pathlib.Path(__file__).parent
     # rotating_file_handler = RotatingFileHandler(f"{PROJECT_PATH}/logs/MangaManager.log", maxBytes=5725760,
     #                                             backupCount=2)
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s',
                         handlers=[logging.StreamHandler(sys.stdout)]
                         # filename='/tmp/myapp.log'
@@ -1551,5 +1568,7 @@ if __name__ == '__main__':
     # </Logger>
 
     app = AppCli()
+    app.parse_args()
+    app.loadedComicInfo_List, app.origin_LoadedcInfo = app.loadFiles()
     app.copyCInfo()
     app.saveFiles()

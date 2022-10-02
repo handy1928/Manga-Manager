@@ -6,29 +6,15 @@ import zipfile
 from lxml.etree import XMLSyntaxError
 
 if __name__.startswith("MetadataManagerLib") or __name__ == 'MangaManager.MetadataManagerLib.cbz_handler':
-    from .errors import NoMetadataFileFound, CorruptedComicInfo
+    from .errors import NoMetadataFileFound, CorruptedComicInfo, NotValidCbz, BrokenCbz
     from .models import *
     # from . import ComicInfo
 else:
-    name = __name__
-    from errors import NoMetadataFileFound, CorruptedComicInfo
+    from errors import NoMetadataFileFound, CorruptedComicInfo, NotValidCbz, BrokenCbz
     from models import *
     # import ComicInfo
 
 logger = logging.getLogger(__name__)
-
-class ReadMetadata:
-    def __init__(self, cbz_path):
-        """
-        Reads comicinfo without extracting the zip
-        """
-
-
-    def to_ComicInfo(self) -> "ComicInfo.ComicInfo":
-        metadata = ReadComicInfo("", self.metadata).to_ComicInfo()
-        archive.close()
-        logger.debug("Successfully read metadata")
-        return metadata
 
 
 def is_folder(name: str, folders_list):
@@ -55,7 +41,26 @@ class ReadComicInfo:
             #     if not comicinfo_xml_exists and not ignore_empty_metadata:
             #         raise NoMetadataFileFound(self.cbz_path)
 
-            archive = zipfile.ZipFile(cbz_path, 'r')
+            try:
+                archive = zipfile.ZipFile(cbz_path, 'r')
+            except zipfile.BadZipfile:
+                if not cbz_path.endswith(("cbz", "zip")):
+                    raise NotValidCbz()
+                else:
+                    raise BrokenCbz()
+            except TypeError:
+                print("typerror")
+                if not cbz_path.endswith(("cbz", "zip")):
+                    raise NotValidCbz()
+                else:
+                    raise BrokenCbz()
+            except AttributeError:
+                if not cbz_path.endswith(("cbz", "zip")):
+                    raise NotValidCbz()
+                else:
+                    raise BrokenCbz()
+
+
             try:
                 self.xmlString = archive.read('ComicInfo.xml').decode('utf-8')
                 archive.close()

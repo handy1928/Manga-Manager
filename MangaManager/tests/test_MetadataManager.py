@@ -1,3 +1,5 @@
+import glob
+import os
 import random
 import tkinter as tk
 import unittest
@@ -345,3 +347,65 @@ class GlobalTagsGenres(unittest.TestCase):
                 self.assertFalse(tag in loadedCinfo.comicInfoObj.get_Tags())
             for genre in "Common_tag_4, Tag_1, Tag_8".split(","):
                 self.assertFalse(genre in loadedCinfo.comicInfoObj.get_Genre())
+
+
+class AppCliTester(unittest.TestCase):
+    def setUp(self) -> None:
+
+        self.test_files_names = []
+        print("\n", self._testMethodName)
+        print("Setup:")
+        added_metadata_once = False
+        for ai in range(3):
+            out_tmp_zipname = f"Test_{ai}_{random.randint(1, 6000)}.cbz"
+            self.test_files_names.append(out_tmp_zipname)
+            self.temp_folder = tempfile.mkdtemp()
+            # print("", self._testMethodName)
+            print(f"     Creating: {out_tmp_zipname}")  # , self._testMethodName)
+            with zipfile.ZipFile(out_tmp_zipname, "w") as zf:
+                for i in range(5):
+                    image = Image.new('RGB', size=(20, 20), color=(255, 73, 95))
+                    image.format = "JPEG"
+                    # file = tempfile.NamedTemporaryFile(suffix=f'.jpg', prefix=str(i).zfill(3), dir=self.temp_folder)
+                    imgByteArr = io.BytesIO()
+                    image.save(imgByteArr, format=image.format)
+                    imgByteArr = imgByteArr.getvalue()
+                    # image.save(file, format='JPEG')
+                    # file.write(image.tobytes())
+                    zf.writestr(os.path.basename(f"{str(i).zfill(3)}.jpg"), imgByteArr)
+
+                    cinfo = ComicInfo.ComicInfo()
+                    cinfo.set_Series(f"Test_series {i}")
+                    # os.rename(_zipFilePath, new_zipFilePath)
+                    export_io = io.StringIO()
+                    cinfo.export(export_io, 0)
+                    zf.writestr("ComicInfo.xml", export_io.getvalue())
+                    added_metadata_once = True
+            self.initial_dir_count = len(os.listdir(os.getcwd()))
+
+    def tearDown(self) -> None:
+        print("Teardown:")
+        for filename in self.test_files_names:
+            print(f"     Deleting: {filename}")  # , self._testMethodName)
+            try:
+                os.remove(filename)
+            except Exception as e:
+                print(e)
+
+    def test_no_cbz_file_processign(self):
+        tmpfd, tmpname = tempfile.mkstemp(dir=os.path.dirname(os.getcwd()))
+        print(f"Creating: {tmpname} as no cbz file")  # , self._testMethodName)
+        os.close(tmpfd)
+
+        class Args:
+            copyfrom = self.test_files_names[0]
+        self.test_files_names.append(tmpname)
+        print(f"Testing to read all files with globlike-path")
+        app = MetadataManager.AppCli()
+        app.args = Args()
+
+        app.selected_files = glob.glob(f"{os.getcwd()}/*")
+        app.origin_path = glob.glob(app.args.copyfrom)[0]
+
+        app.loadFiles()
+

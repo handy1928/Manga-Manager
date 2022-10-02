@@ -220,7 +220,7 @@ class MangaManager:
 
 if __name__ == "__main__":
     args = parser.parse_args()
-
+    logger.setLevel(args.loglevel)
     if not args.default_selected_tool:
         master_root = tk.Tk()
         master_root.title("Manga Manager")

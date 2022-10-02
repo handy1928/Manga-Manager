@@ -185,7 +185,7 @@ class CoverManagerTester(unittest.TestCase):
         self.assertEqual(self.initial_dir_count, final_dir_count)
 
 
-class CoverManagerTester_Different_Path_1(CoverManagerTester):
+class CoverManagerTesterDifferentPath1(CoverManagerTester):
     def setUp(self) -> None:
         self.test_files_names = []  # Simulated list of filepaths
         print("\n", self._testMethodName)

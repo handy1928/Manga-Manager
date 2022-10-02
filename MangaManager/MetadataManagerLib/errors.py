@@ -14,6 +14,24 @@ class CorruptedComicInfo(Exception):
         super().__init__(f'Failed to recover ComicInfo.xml data in {cbz_path}')
 
 
+class NotValidCbz(Exception):
+    """
+    Exception raised when the file is not a cbz/zip and tries to read from it.
+    """
+
+    def __init__(self, info=None):
+        super().__init__(f'Not cbz file format' + str(info))
+
+
+class BrokenCbz(Exception):
+    """
+    Exception raised when there's issues reading the cbz/zip
+    """
+
+    def __init__(self, info=None):
+        super().__init__(f"File can't be read. Posibly broken" + info)
+
+
 class CancelComicInfoLoad(Exception):
     """
     Exception raised when the users wants to stop loading comicInfo.
